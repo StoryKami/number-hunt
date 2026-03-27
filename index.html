@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Number Hunt</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ─── Theme Variables ─── */
+    :root {
+      --bg:           #0a0a14;
+      --text:         #ffffff;
+      --text-muted:   #aaa;
+      --text-sub:     #888;
+      --cell-bg:      #2a2d4a;
+      --cell-border:  #5a5f8a;
+      --cell-text:    #ffffff;
+      --ui-bg:        #2a2d4a;
+      --ui-border:    #5a5f8a;
+      --ui-text:      #ddd;
+      --label-color:  #9da3cc;
+      --timer-track:  #1e1e30;
+      --overlay-bg:   rgba(0, 0, 0, 0.9);
+      --overlay-text: #ddd;
+    }
+
+    body.light {
+      --bg:           #eef0f8;
+      --text:         #1a1a2e;
+      --text-muted:   #555;
+      --text-sub:     #777;
+      --cell-bg:      #ffffff;
+      --cell-border:  #b0b8d8;
+      --cell-text:    #1a1a2e;
+      --ui-bg:        #dde0f0;
+      --ui-border:    #a0a8c8;
+      --ui-text:      #333;
+      --label-color:  #4a4f7a;
+      --timer-track:  #c8ccde;
+      --overlay-bg:   rgba(220, 224, 240, 0.97);
+      --overlay-text: #333;
+    }
+
+    html, body {
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      max-width: 480px;
+      margin: 0 auto;
+      transition: background 0.25s, color 0.25s;
+    }
+
+    /* ─── Header ─── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px 6px;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .lives { font-size: 18px; letter-spacing: 2px; background: var(--ui-bg); padding: 4px 10px; border-radius: 8px; }
+    .score-display { font-size: 16px; font-weight: 700; color: #f5c400; position: absolute; left: 50%; transform: translateX(-50%); text-align: center; line-height: 1.4; }
+    .best-display { font-size: 11px; color: var(--text-sub); font-weight: 500; }
+
+    /* ─── Target ─── */
+    .target-section {
+      text-align: center;
+      padding: 2px 16px 4px;
+      flex-shrink: 0;
+    }
+
+    .target-label {
+      font-size: 15px;
+      color: var(--text-muted);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .target-number {
+      font-size: 56px;
+      font-weight: 900;
+      line-height: 1;
+      color: #f5c400;
+      text-shadow: 0 0 24px rgba(245, 196, 0, 0.4);
+    }
+
+    .target-number.pop {
+      animation: pop 0.18s ease-out;
+    }
+
+    @keyframes pop {
+      0%   { transform: scale(0.65); opacity: 0.4; }
+      100% { transform: scale(1);    opacity: 1; }
+    }
+
+    /* ─── Timer ─── */
+    .timer-section {
+      padding: 4px 16px 4px;
+      flex-shrink: 0;
+    }
+
+    .timer-track {
+      height: 6px;
+      background: var(--timer-track);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .timer-fill {
+      height: 100%;
+      width: 100%;
+      background: #4caf50;
+      border-radius: 3px;
+      will-change: width, background;
+    }
+
+    /* ─── Grid Labels ─── */
+    .grid-labels {
+      display: flex;
+      gap: 6px;
+      padding: 3px 8px 2px;
+      flex-shrink: 0;
+    }
+
+    .grid-label {
+      flex: 1;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--label-color);
+      letter-spacing: 1px;
+    }
+
+    /* ─── Grids ─── */
+    .grids-container {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      gap: 6px;
+      padding: 0 8px 10px;
+    }
+
+    .grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(10, 1fr);
+      gap: 3px;
+    }
+
+    .cell {
+      background: var(--cell-bg);
+      border: 1px solid var(--cell-border);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(8px, 1.9vw, 11px);
+      font-weight: 600;
+      color: var(--cell-text);
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+
+    .cell:active { opacity: 0.7; }
+
+    .cell.correct {
+      background: #1b4d1b;
+      border-color: #4caf50;
+      color: #7fff7f;
+      animation: flash-green 0.25s;
+    }
+
+    .cell.wrong {
+      background: #4d1b1b;
+      border-color: #f44336;
+      color: #ff9090;
+      animation: shake 0.3s;
+    }
+
+    .cell.reveal {
+      background: #4d3d00;
+      border-color: #f5c400;
+      color: #f5c400;
+      animation: pulse 0.4s ease-in-out;
+    }
+
+    @keyframes flash-green {
+      0%   { background: #4caf50; color: #fff; }
+      100% { background: #1b4d1b; color: #7fff7f; }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25%       { transform: translateX(-5px); }
+      75%       { transform: translateX(5px); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50%       { transform: scale(1.12); }
+    }
+
+    /* ─── Overlay ─── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--overlay-bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      z-index: 50;
+      padding: 32px;
+      text-align: center;
+    }
+
+    .overlay.hidden { display: none; }
+
+    .overlay-emoji { font-size: 52px; line-height: 1; }
+    .overlay-title { font-size: 30px; font-weight: 900; color: var(--text); }
+
+    .overlay-desc {
+      font-size: 16px;
+      color: var(--overlay-text);
+      line-height: 1.7;
+    }
+
+    .overlay-score {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f5c400;
+    }
+
+    .overlay-best {
+      font-size: 15px;
+      color: var(--text-muted);
+    }
+
+    .btn {
+      padding: 15px 50px;
+      font-size: 18px;
+      font-weight: 700;
+      background: #f5c400;
+      color: #1a1a2e;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+
+    .btn:active { transform: scale(0.95); }
+
+    .btn-secondary {
+      padding: 13px 36px;
+      font-size: 16px;
+      font-weight: 700;
+      background: var(--ui-bg);
+      color: var(--ui-text);
+      border: 1px solid var(--ui-border);
+      border-radius: 14px;
+      cursor: pointer;
+    }
+    .btn-secondary:active { transform: scale(0.95); }
+
+    .pause-btn {
+      background: var(--ui-bg);
+      border: 1px solid var(--ui-border);
+      border-radius: 8px;
+      color: var(--ui-text);
+      font-size: 18px;
+      padding: 4px 10px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .pause-btn:active { transform: scale(0.9); }
+
+    .theme-btn {
+      position: fixed;
+      top: 12px;
+      right: 16px;
+      background: var(--ui-bg);
+      border: 1px solid var(--ui-border);
+      border-radius: 8px;
+      color: var(--ui-text);
+      font-size: 16px;
+      padding: 4px 8px;
+      cursor: pointer;
+      line-height: 1;
+      z-index: 200;
+    }
+    .theme-btn:active { transform: scale(0.9); }
+
+    .hint-row {
+      display: flex;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--overlay-text);
+    }
+
+    .hint-box {
+      background: var(--ui-bg);
+      border: 1px solid var(--ui-border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      color: var(--ui-text);
+    }
+  </style>
+</head>
+<body>
+
+<button class="theme-btn" id="themeBtn">☀️</button>
+
+<!-- ─── Start Overlay ─── -->
+<div id="startOverlay" class="overlay">
+  <div class="overlay-emoji">🔢</div>
+  <div class="overlay-title">Number Hunt</div>
+  <div class="overlay-desc">
+    목표 숫자를 찾아 터치하세요!<br>
+    늦으면 목숨을 잃어요 ❤️❤️❤️
+  </div>
+  <div class="hint-row">
+    <div class="hint-box">왼쪽 1 ~ 50</div>
+    <div class="hint-box">오른쪽 101 ~ 150</div>
+  </div>
+  <button class="btn" id="startBtn">시작하기</button>
+</div>
+
+<!-- ─── Pause Overlay ─── -->
+<div id="pauseOverlay" class="overlay hidden">
+  <div class="overlay-emoji">⏸️</div>
+  <div class="overlay-title">일시 정지</div>
+  <button class="btn" id="resumeBtn">계속하기</button>
+  <button class="btn-secondary" id="restartFromPauseBtn">다시하기</button>
+</div>
+
+<!-- ─── Game Over Overlay ─── -->
+<div id="gameOverOverlay" class="overlay hidden">
+  <div class="overlay-emoji">💀</div>
+  <div class="overlay-title">게임 오버</div>
+  <div id="finalScore" class="overlay-score"></div>
+  <div id="bestScore" class="overlay-best"></div>
+  <button class="btn" id="restartBtn">다시 시작</button>
+</div>
+
+<!-- ─── Game UI ─── -->
+<div class="header">
+  <div class="lives" id="lives">❤️❤️❤️</div>
+  <div class="score-display">
+    <div>점수 <span id="scoreVal">0</span></div>
+    <div class="best-display">최고 <span id="bestVal">0</span></div>
+  </div>
+  <button class="pause-btn" id="pauseBtn">⏸</button>
+</div>
+
+<div class="target-section">
+  <div class="target-label">찾아라</div>
+  <div class="target-number" id="targetNumber">—</div>
+</div>
+
+<div class="timer-section">
+  <div class="timer-track">
+    <div class="timer-fill" id="timerFill"></div>
+  </div>
+</div>
+
+<div class="grid-labels">
+  <div class="grid-label">1 ~ 50</div>
+  <div class="grid-label">101 ~ 150</div>
+</div>
+
+<div class="grids-container">
+  <div class="grid" id="leftGrid"></div>
+  <div class="grid" id="rightGrid"></div>
+</div>
+
+<script>
+  // ─── Constants ───────────────────────────────────────────────────────────
+  const MAX_LIVES  = 3;
+  const BASE_TIME  = 10000;  // ms at score 0 (10초)
+  const MIN_TIME   = 2000;   // ms floor
+  const DECAY_RATE = 0.93;   // 점수마다 남은 시간의 93%로 줄어듦 (지수 감소)
+
+  // ─── State ───────────────────────────────────────────────────────────────
+  let score       = 0;
+  let lives       = MAX_LIVES;
+  let bestScore   = parseInt(localStorage.getItem('nhBest') || '0');
+  let target      = null;
+  let rafId       = null;
+  let roundStart  = null;
+  let roundDur    = BASE_TIME;
+  let gameActive  = false;
+  let paused      = false;
+  let pausedAt    = null;  // performance.now() when paused
+  let allNums     = [];   // flat [left50, right50] for target pool
+
+  // ─── Bootstrap ───────────────────────────────────────────────────────────
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('restartBtn').addEventListener('click', startGame);
+  document.getElementById('pauseBtn').addEventListener('click', togglePause);
+  document.getElementById('resumeBtn').addEventListener('click', togglePause);
+  document.getElementById('restartFromPauseBtn').addEventListener('click', startGame);
+  document.getElementById('themeBtn').addEventListener('click', toggleTheme);
+
+  // ─── Theme ───────────────────────────────────────────────────────────────
+  let isLight = localStorage.getItem('nhTheme') === 'light';
+  applyTheme();
+
+  function toggleTheme() {
+    isLight = !isLight;
+    localStorage.setItem('nhTheme', isLight ? 'light' : 'dark');
+    applyTheme();
+  }
+
+  function applyTheme() {
+    document.body.classList.toggle('light', isLight);
+    document.getElementById('themeBtn').textContent = isLight ? '🌙' : '☀️';
+  }
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // ─── Pause ───────────────────────────────────────────────────────────────
+  function togglePause() {
+    if (!gameActive) return;
+
+    if (!paused) {
+      paused    = true;
+      pausedAt  = performance.now();
+      stopTimer();
+      show('pauseOverlay');
+    } else {
+      paused     = false;
+      roundStart += performance.now() - pausedAt;  // shift start so elapsed is correct
+      hide('pauseOverlay');
+      startTimer();
+    }
+  }
+
+  // ─── Game Start ──────────────────────────────────────────────────────────
+  function startGame() {
+    score      = 0;
+    lives      = MAX_LIVES;
+    gameActive = true;
+    paused     = false;
+    roundDur   = BASE_TIME;
+
+    hide('startOverlay');
+    hide('gameOverOverlay');
+    hide('pauseOverlay');
+
+    const leftNums  = range(1, 50);
+    const rightNums = range(101, 150);
+    allNums = [...leftNums, ...rightNums];
+
+    buildGrid('leftGrid',  leftNums);
+    buildGrid('rightGrid', rightNums);
+
+    syncHeader();
+    nextRound();
+  }
+
+  function range(from, to) {
+    return Array.from({ length: to - from + 1 }, (_, i) => i + from);
+  }
+
+  // ─── Grid ────────────────────────────────────────────────────────────────
+  function buildGrid(id, numbers) {
+    const grid = document.getElementById(id);
+    grid.innerHTML = '';
+    numbers.forEach(num => {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.n = num;
+
+      // touchend for fast mobile response; click for desktop/fallback
+      cell.addEventListener('touchend', e => {
+        e.preventDefault();
+        handleTap(num, cell);
+      }, { passive: false });
+      cell.addEventListener('click', () => handleTap(num, cell));
+
+      grid.appendChild(cell);
+    });
+  }
+
+  function cellOf(num) {
+    return document.querySelector(`.cell[data-n="${num}"]`);
+  }
+
+  function clearCellStates() {
+    document.querySelectorAll('.cell').forEach(c => {
+      c.classList.remove('correct', 'wrong', 'reveal');
+      c.textContent = '';
+    });
+  }
+
+  // ─── Round ───────────────────────────────────────────────────────────────
+  function nextRound() {
+    if (!gameActive) return;
+
+    roundDur = Math.max(MIN_TIME, Math.round((BASE_TIME - MIN_TIME) * Math.pow(DECAY_RATE, score) + MIN_TIME));
+    target   = allNums[Math.floor(Math.random() * allNums.length)];
+
+    // Animate target number
+    const el = document.getElementById('targetNumber');
+    el.textContent = target;
+    el.classList.remove('pop');
+    void el.offsetWidth;         // force reflow to restart animation
+    el.classList.add('pop');
+
+    clearCellStates();
+    startTimer();
+  }
+
+  // ─── Timer ───────────────────────────────────────────────────────────────
+  function startTimer() {
+    cancelAnimationFrame(rafId);
+    roundStart = performance.now();
+
+    function tick(now) {
+      const elapsed = now - roundStart;
+      const ratio   = Math.max(0, 1 - elapsed / roundDur);
+      const fill    = document.getElementById('timerFill');
+
+      fill.style.width      = (ratio * 100) + '%';
+      fill.style.background = ratio > 0.5 ? '#4caf50'
+                            : ratio > 0.25 ? '#ff9800'
+                            : '#f44336';
+
+      if (elapsed >= roundDur) { onTimeout(); return; }
+      rafId = requestAnimationFrame(tick);
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function stopTimer() {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+
+  // ─── Input ───────────────────────────────────────────────────────────────
+  function handleTap(num, cell) {
+    if (!gameActive || target === null || paused) return;
+
+    if (num === target) {
+      stopTimer();
+      target = null;  // 입력 잠금
+      cell.classList.add('correct');
+      cell.textContent = num;
+      score++;
+      syncHeader();
+      setTimeout(() => { cell.textContent = ''; nextRound(); }, 380);
+    } else {
+      stopTimer();
+      target = null;  // 입력 잠금
+      cell.classList.add('wrong');
+      cell.textContent = num;
+      lives--;
+      syncHeader();
+      if (lives <= 0) {
+        setTimeout(gameOver, 600);
+      } else {
+        setTimeout(() => { cell.textContent = ''; nextRound(); }, 500);
+      }
+    }
+  }
+
+  // ─── Timeout ─────────────────────────────────────────────────────────────
+  function onTimeout() {
+    stopTimer();
+
+    // Reveal correct cell location
+    const c = cellOf(target);
+    if (c) { c.classList.add('reveal'); c.textContent = target; }
+    target = null;  // 입력 잠금
+
+    lives--;
+    syncHeader();
+
+    if (lives <= 0) {
+      setTimeout(gameOver, 950);
+    } else {
+      setTimeout(nextRound, 1150);
+    }
+  }
+
+  // ─── Game Over ───────────────────────────────────────────────────────────
+  function gameOver() {
+    gameActive = false;
+    stopTimer();
+
+    if (score > bestScore) {
+      bestScore = score;
+      localStorage.setItem('nhBest', bestScore);
+    }
+
+    document.getElementById('finalScore').textContent = `최종 점수: ${score}점`;
+    document.getElementById('bestScore').textContent  = `최고 기록: ${bestScore}점`;
+    show('gameOverOverlay');
+  }
+
+  // ─── UI Sync ─────────────────────────────────────────────────────────────
+  function syncHeader() {
+    const hearts = Array.from({ length: MAX_LIVES },
+      (_, i) => i < lives ? '❤️' : '🖤'
+    ).join('');
+    document.getElementById('lives').textContent    = hearts;
+    document.getElementById('scoreVal').textContent = score;
+    document.getElementById('bestVal').textContent  = bestScore;
+  }
+
+  function show(id) { document.getElementById(id).classList.remove('hidden'); }
+  function hide(id) { document.getElementById(id).classList.add('hidden'); }
+</script>
+</body>
+</html>
